@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #
 # Cookbook Name:: postgresql
 # Recipe:: client
