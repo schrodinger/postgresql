@@ -1,5 +1,6 @@
+# frozen_string_literal: true
 #
-# Cookbook Name:: postgresql
+# Cookbook:: postgresql
 # Recipe:: contrib
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,28 +17,21 @@
 #
 
 include_recipe 'postgresql::config_version'
+
+Chef::Log.warn 'This cookbook is being re-written to use resources, not recipes and will only be Chef 13.8+ compatible. Please version pin to 6.1.1 to prevent the breaking changes from taking effect. See https://github.com/sous-chefs/postgresql/issues/512 for details'
+
 db_name = node['postgresql']['database_name']
 
 # Install the PostgreSQL contrib package(s) from the distribution,
 # as specified by the node attributes.
-node['postgresql']['contrib']['packages'].each do |pg_pack|
-  package pg_pack
-end
+package node['postgresql']['contrib']['packages']
 
-include_recipe "postgresql::server"
+include_recipe 'postgresql::server'
 
 # Install PostgreSQL contrib extentions into the database, as specified by the
 # node attribute node['postgresql']['database_name'].
-if (node['postgresql']['contrib'].attribute?('extensions'))
+if node['postgresql']['contrib'].attribute?('extensions')
   node['postgresql']['contrib']['extensions'].each do |pg_ext|
-    bash "install-#{pg_ext}-extension" do
-      user 'postgres'
-      code <<-EOH
-        echo 'CREATE EXTENSION IF NOT EXISTS "#{pg_ext}";' | psql -d "#{db_name}"
-      EOH
-      action :run
-      ::Chef::Resource.send(:include, Opscode::PostgresqlHelpers)
-      not_if { extension_installed?(pg_ext) }
-    end
+    postgresql_extension "#{db_name}/#{pg_ext}"
   end
 end

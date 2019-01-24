@@ -1,5 +1,6 @@
+# frozen_string_literal: true
 #
-# Cookbook Name:: postgresql
+# Cookbook:: postgresql
 # Recipe:: server
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +16,13 @@
 # limitations under the License.
 #
 
-include_recipe "postgresql::ca_certificates"
+Chef::Log.warn 'This cookbook is being re-written to use resources, not recipes and will only be Chef 13.8+ compatible. Please version pin to 6.1.1 to prevent the breaking changes from taking effect. See https://github.com/sous-chefs/postgresql/issues/512 for details'
 
 ::Chef::Recipe.send(:include, OpenSSLCookbook::RandomPassword)
 
-include_recipe "postgresql::client"
+include_recipe 'postgresql::client'
 
 # randomly generate postgres password
-
 node.normal_unless['postgresql']['password']['postgres'] = random_password
 
 # Include the right "family" recipe for installing the server
@@ -42,16 +42,15 @@ end
 
 # Versions prior to 9.2 do not have a config file option to set the SSL
 # key and cert path, and instead expect them to be in a specific location.
-if node['postgresql']['version'].to_f < 9.2 && node['postgresql']['config'].attribute?('ssl_cert_file')
-  link ::File.join(node['postgresql']['config']['data_directory'], 'server.crt') do
-    to node['postgresql']['config']['ssl_cert_file']
-  end
+
+link ::File.join(node['postgresql']['config']['data_directory'], 'server.crt') do
+  to node['postgresql']['config']['ssl_cert_file']
+  only_if { node['postgresql']['version'].to_f < 9.2 && node['postgresql']['config'].attribute?('ssl_cert_file') }
 end
 
-if node['postgresql']['version'].to_f < 9.2 && node['postgresql']['config'].attribute?('ssl_key_file')
-  link ::File.join(node['postgresql']['config']['data_directory'], 'server.key') do
-    to node['postgresql']['config']['ssl_key_file']
-  end
+link ::File.join(node['postgresql']['config']['data_directory'], 'server.key') do
+  to node['postgresql']['config']['ssl_key_file']
+  only_if { node['postgresql']['version'].to_f < 9.2 && node['postgresql']['config'].attribute?('ssl_key_file') }
 end
 
 service "postgresql" do

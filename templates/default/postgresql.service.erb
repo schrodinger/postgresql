@@ -6,5 +6,5 @@
 <% end %>
 
 Environment=
-Environment=PGPORT=<%= node['postgresql']['config']['port'] %>
-Environment=PGDATA=<%= node['postgresql']['config']['data_directory'] %>
+Environment=PGPORT=<%= @port %>
+Environment=PGDATA=<%= @data_dir %>

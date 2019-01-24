@@ -1,5 +1,6 @@
+# frozen_string_literal: true
 #
-# Cookbook Name:: postgresql
+# Cookbook:: postgresql
 # Recipe::yum_pgdg_postgresql
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +16,8 @@
 # limitations under the License.
 #
 
+Chef::Log.warn 'This cookbook is being re-written to use resources, not recipes and will only be Chef 13.8+ compatible. Please version pin to 6.1.1 to prevent the breaking changes from taking effect. See https://github.com/sous-chefs/postgresql/issues/512 for details'
+
 ######################################
 # Install the "PostgreSQL RPM Building Project - Yum Repository"
 
@@ -23,16 +26,20 @@ include_recipe 'postgresql::config_version'
 rpm_platform = node['platform']
 rpm_platform_version = node['platform_version'].to_f.to_i.to_s
 arch = node['kernel']['machine']
+pg_version = node['postgresql']['version']
+pgdg_setup = node['postgresql']['pgdg']['repo_rpm_url'][pg_version][rpm_platform][rpm_platform_version][arch]
+pgdg_package = pgdg_setup['package']
+pgdg_repository = pgdg_setup['url']
 
 # Download the PGDG repository RPM as a local file
-remote_file "#{Chef::Config[:file_cache_path]}/#{node[:postgresql][:pgdg][:repo_rpm_url][node[:postgresql][:version]][rpm_platform][rpm_platform_version][arch][:package]}" do
-  source "#{node[:postgresql][:pgdg][:repo_rpm_url][node[:postgresql][:version]][rpm_platform][rpm_platform_version][arch][:url]}#{node[:postgresql][:pgdg][:repo_rpm_url][node[:postgresql][:version]][rpm_platform][rpm_platform_version][arch][:package]}"
-  mode "0644"
+remote_file "#{Chef::Config[:file_cache_path]}/#{pgdg_package}" do
+  source "#{pgdg_repository}#{pgdg_package}"
+  mode '0644'
 end
 
 # Install the PGDG repository RPM from the local file
-package "#{node[:postgresql][:pgdg][:repo_rpm_url][node[:postgresql][:version]][rpm_platform][rpm_platform_version][arch][:package]}" do
+package pgdg_package.to_s do
   provider Chef::Provider::Package::Rpm
-  source "#{Chef::Config[:file_cache_path]}/#{node[:postgresql][:pgdg][:repo_rpm_url][node[:postgresql][:version]][rpm_platform][rpm_platform_version][arch][:package]}"
+  source "#{Chef::Config[:file_cache_path]}/#{pgdg_package}"
   action :install
 end

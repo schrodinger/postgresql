@@ -1,5 +1,6 @@
+# frozen_string_literal: true
 #
-# Cookbook Name:: postgresql
+# Cookbook:: postgresql
 # Recipe:: server
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +19,8 @@
 include_recipe 'postgresql::config_version'
 include_recipe "postgresql::client"
 
+Chef::Log.warn 'This cookbook is being re-written to use resources, not recipes and will only be Chef 13.8+ compatible. Please version pin to 6.1.1 to prevent the breaking changes from taking effect. See https://github.com/sous-chefs/postgresql/issues/512 for details'
+
 svc_name = node['postgresql']['server']['service_name']
 initdb_locale = node['postgresql']['initdb_locale']
 
@@ -26,36 +29,35 @@ shortver = node['postgresql']['version'].split('.').join
 # Create a group and user like the package will.
 # Otherwise the templates fail.
 
-group "postgres" do
-  gid 26
+group 'postgres' do
+  gid node['postgresql']['gid']
 end
 
-user "postgres" do
-  shell "/bin/bash"
-  comment "PostgreSQL Server"
-  home "/var/lib/pgsql"
-  gid "postgres"
+user 'postgres' do
+  shell '/bin/bash'
+  comment 'PostgreSQL Server'
+  home '/var/lib/pgsql'
+  gid 'postgres'
   system true
-  uid 26
-  supports :manage_home => false
+  uid node['postgresql']['uid']
+  manage_home false
 end
 
 directory node['postgresql']['config']['data_directory'] do
-  owner "postgres"
-  group "postgres"
+  owner 'postgres'
+  group 'postgres'
   recursive true
   action :create
+  mode '0700'
 end
 
-node['postgresql']['server']['packages'].each do |pg_pack|
-  package pg_pack
-end
+package node['postgresql']['server']['packages']
 
 # If using PGDG, add symlinks so that downstream commands all work
 if node['postgresql']['enable_pgdg_yum'] == true || node['postgresql']['use_pgdg_packages'] == true
   [
     "postgresql#{shortver}-setup",
-    "postgresql#{shortver}-check-db-dir"
+    "postgresql#{shortver}-check-db-dir",
   ].each do |cmd|
     link "/usr/bin/#{cmd}" do
       to "/usr/pgsql-#{node['postgresql']['version']}/bin/#{cmd}"
@@ -68,16 +70,16 @@ end
 
 unless node['postgresql']['server']['init_package'] == 'systemd'
 
-  directory "/etc/sysconfig/pgsql" do
-    mode "0644"
+  directory '/etc/sysconfig/pgsql' do
+    mode '0644'
     recursive true
     action :create
   end
 
   template "/etc/sysconfig/pgsql/#{svc_name}" do
-    source "pgsql.sysconfig.erb"
-    mode "0644"
-    notifies :restart, "service[postgresql]", :delayed
+    source 'pgsql.sysconfig.erb'
+    mode '0644'
+    notifies :restart, 'service[postgresql]', :delayed
   end
 
 end
@@ -85,7 +87,14 @@ end
 if node['postgresql']['server']['init_package'] == 'systemd'
 
   if node['platform_family'] == 'rhel'
-    template '/etc/systemd/system/postgresql.service' do
+
+    template_path = if node['postgresql']['use_pgdg_packages']
+                      "/etc/systemd/system/postgresql-#{node['postgresql']['version']}.service"
+                    else
+                      '/etc/systemd/system/postgresql.service'
+                    end
+
+    template template_path do
       source 'postgresql.service.erb'
       owner 'root'
       group 'root'
@@ -111,7 +120,7 @@ if node['postgresql']['server']['init_package'] == 'systemd'
     end
   end
 
-elsif (!platform_family?("suse") && node['postgresql']['version'].to_f <= 9.3)
+elsif !platform_family?('suse') && node['postgresql']['version'].to_f <= 9.3
 
   execute "/sbin/service #{svc_name} initdb #{initdb_locale}" do
     not_if { ::File.exist?("#{node['postgresql']['config']['data_directory']}/PG_VERSION") }
@@ -125,4 +134,11 @@ else
 
 end
 
-include_recipe "postgresql::server_conf"
+#NOTE(martin): potential merge error
+service 'postgresql' do
+  service_name svc_name
+  supports restart: true, status: true, reload: true
+  action [:enable, :start]
+end
+
+include_recipe 'postgresql::server_conf'

@@ -1,5 +1,6 @@
+# frozen_string_literal: true
 #
-# Cookbook Name:: postgresql
+# Cookbook:: postgresql
 # Recipe:: server
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,9 +19,11 @@
 include_recipe 'postgresql::config_version'
 include_recipe "postgresql::client"
 
-node['postgresql']['server']['packages'].each do |pg_pack|
-  package pg_pack
-end
+Chef::Log.warn 'This cookbook is being re-written to use resources, not recipes and will only be Chef 13.8+ compatible. Please version pin to 6.1.1 to prevent the breaking changes from taking effect. See https://github.com/sous-chefs/postgresql/issues/512 for details'
+
+include_recipe 'postgresql::client'
+
+package node['postgresql']['server']['packages']
 
 if node['postgresql']['server']['init_package'] == 'upstart'
   # Install the upstart script for 12.04 and 14.04
@@ -45,7 +48,14 @@ if node['postgresql']['server']['init_package'] == 'upstart'
   end
 end
 
-include_recipe "postgresql::server_conf"
+include_recipe 'postgresql::server_conf'
+
+#NOTE(martin): potential merge error
+service 'postgresql' do
+  service_name node['postgresql']['server']['service_name']
+  supports restart: true, status: true, reload: true
+  action [:enable, :start]
+end
 
 execute 'Set locale and Create cluster' do
   command "export LC_ALL=en_US.UTF-8; /usr/bin/pg_createcluster --start #{node['postgresql']['version']} #{node['postgresql']['cluster_name']}"
