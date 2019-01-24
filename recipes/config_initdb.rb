@@ -23,7 +23,7 @@ include_recipe 'postgresql::config_version'
 #######
 # Load the locale_date_order() and select_default_timezone(tzdir)
 # methods from libraries/default.rb
-::Chef::Recipe.send(:include, Opscode::PostgresqlHelpers)
+::Chef::Recipe.send(:include, PostgresqlCookbook::Helpers)
 
 #######
 # This recipe is derived from the setup_config() source code in the
